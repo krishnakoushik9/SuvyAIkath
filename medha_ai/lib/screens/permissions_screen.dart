@@ -1,4 +1,6 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:permission_handler/permission_handler.dart';
 import '../utils/permission_handler.dart' as app_permissions;
 

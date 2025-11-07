@@ -9,101 +9,49 @@ class AppPermissions {
   // Check if iOS
   static bool get isIOS => defaultTargetPlatform == TargetPlatform.iOS;
 
-  // Request multiple permissions
+  // Request only essential permissions
   static Future<Map<Permission, PermissionStatus>> requestAppPermissions() async {
-    // For Android 10 (API 29) and above, we need to request storage permissions differently
-    if (isAndroid) {
-      // First request storage permission (for Android 10+)
-      final storageStatus = await Permission.storage.request();
-      
-      // Then request manage external storage if needed (for Android 11+)
-      if (storageStatus.isGranted) {
-        await Permission.manageExternalStorage.request();
-      }
-      
-      // Request other permissions
-      final otherPermissions = await [
-        Permission.contacts,
-        Permission.photos,
-        Permission.notification,
-      ].request();
-      
-      // Combine all permission statuses
-      return {
-        ...otherPermissions,
-        Permission.storage: storageStatus,
-        Permission.manageExternalStorage: await Permission.manageExternalStorage.status,
-      };
-    } else {
-      // For iOS, request permissions normally
-      return await [
-        Permission.contacts,
-        Permission.storage,
-        Permission.photos,
-        Permission.notification,
-      ].request();
-    }
+    // Only request essential permissions
+    final permissions = await [
+      Permission.notification,
+      if (isIOS) Permission.photos, // Only request photos on iOS if needed
+    ].request();
+    
+    return permissions;
   }
 
-  // Check if all permissions are granted
+  // Check if all essential permissions are granted
   static Future<bool> hasAllPermissions() async {
-    if (isAndroid) {
-      // On Android, we need to check both storage and manage external storage
-      final storageGranted = await Permission.storage.isGranted;
-      final manageStorageGranted = await Permission.manageExternalStorage.isGranted;
-      
-      // For Android 10 and below, we only need storage permission
-      // For Android 11 and above, we need manage external storage
-      final isAndroid11OrHigher = await Permission.storage.isLimited || 
-                                 await Permission.storage.isDenied;
-      
-      final otherPermissions = await Future.wait([
-        Permission.contacts.status.then((s) => s.isGranted),
-        Permission.photos.status.then((s) => s.isGranted),
-        Permission.notification.status.then((s) => s.isGranted),
-      ]);
-      
-      return otherPermissions.every((isGranted) => isGranted) &&
-             storageGranted && 
-             (!isAndroid11OrHigher || manageStorageGranted);
-    } else {
-      // For iOS, check permissions normally
-      final permissions = await Future.wait([
-        Permission.contacts.status.then((s) => s.isGranted),
-        Permission.storage.status.then((s) => s.isGranted),
-        Permission.photos.status.then((s) => s.isGranted),
-        Permission.notification.status.then((s) => s.isGranted),
-      ]);
-      
-      return permissions.every((isGranted) => isGranted);
-    }
+    final permissions = await Future.wait([
+      Permission.notification.status.then((s) => s.isGranted),
+      if (isIOS) Permission.photos.status.then((s) => s.isGranted),
+    ]);
+    
+    return permissions.every((isGranted) => isGranted);
   }
 
-  // Show a dialog explaining why permissions are needed
+  // Show permission rationale dialog
   static Future<bool> showPermissionRationale(
-      BuildContext context, List<Permission> permissions) async {
-    final permissionNames = permissions.map((p) {
-      if (p == Permission.contacts) return 'Contacts';
-      if (p == Permission.storage) return 'Storage';
-      if (p == Permission.photos) return 'Photos';
-      if (p == Permission.notification) return 'Notifications';
-      if (p == Permission.manageExternalStorage) return 'Manage External Storage';
-      return p.toString();
-    }).join(', ');
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permissions Required'),
-        content: Text(
-            'This app needs the following permissions to function properly:\n\n$permissionNames\n\nPlease grant these permissions in the app settings.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+      BuildContext context, String permission) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) => AlertDialog(
+            title: Text('$permission Permission'),
+            content: Text(
+                'This app needs $permission permission to function properly.'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Deny'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Settings'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+        ) ??
+        false;
             child: const Text('Open Settings'),
           ),
         ],
