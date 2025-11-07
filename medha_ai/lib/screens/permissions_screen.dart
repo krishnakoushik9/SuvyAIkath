@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../utils/permission_handler.dart' as app_permissions;
 
-// Local extension to avoid conflicts
-extension _PermissionStatusX on PermissionStatus {
-  bool get isGranted => this == PermissionStatus.granted;
-}
 
 class PermissionsScreen extends StatefulWidget {
   final VoidCallback? onPermissionsGranted;
@@ -44,7 +40,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       final results = await app_permissions.AppPermissions.requestAppPermissions();
       
       // Check if all permissions are granted
-      final allGranted = results.values.every((status) => _PermissionStatusX(status).isGranted);
+      final allGranted = results.values.every((status) => status.isGranted);
       
       if (allGranted) {
         if (mounted) {
@@ -53,7 +49,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       } else {
         // Show which permissions were denied
         final denied = results.entries
-            .where((e) => !_PermissionStatusX(e.value).isGranted)
+            .where((e) => !e.value.isGranted)
             .map((e) {
               switch (e.key) {
                 case Permission.contacts:
