@@ -1,0 +1,16 @@
+[
+  {
+    "question": "Which gas is evolved when dilute hydrochloric acid reacts with zinc?",
+    "options": ["Oxygen", "Hydrogen", "Nitrogen", "Carbon dioxide"],
+    "correctAnswer": 1,
+    "difficulty": "basic",
+    "explanation": "Zinc reacts with dilute HCl to produce hydrogen gas and zinc chloride."
+  },
+  {
+    "question": "What type of reaction is: 2Mg + O2 → 2MgO?",
+    "options": ["Decomposition", "Double displacement", "Combination", "Displacement"],
+    "correctAnswer": 2,
+    "difficulty": "basic",
+    "explanation": "Two reactants combine to form a single product, so it is a combination reaction."
+  }
+]
