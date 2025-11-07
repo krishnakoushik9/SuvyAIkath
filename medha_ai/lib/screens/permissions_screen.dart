@@ -40,42 +40,78 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
       final results = await app_permissions.AppPermissions.requestAppPermissions();
       
       // Check if all permissions are granted
-      final allGranted = results.values.every((status) => status.isGranted);
+      final allGranted = await app_permissions.AppPermissions.hasAllPermissions();
       
       if (allGranted) {
         if (mounted) {
           widget.onPermissionsGranted?.call();
         }
       } else {
-        // Show which permissions were denied
-        final denied = results.entries
-            .where((e) => !e.value.isGranted)
-            .map((e) {
-              switch (e.key) {
-                case Permission.contacts:
-                  return 'Contacts';
-                case Permission.storage:
-                  return 'Storage';
-                case Permission.photos:
-                  return 'Photos';
-                case Permission.notification:
-                  return 'Notifications';
-                case Permission.manageExternalStorage:
-                  return 'Manage Storage';
-                default:
-                  return e.key.toString();
-              }
-            })
-            .join(', ');
+        // Check storage permissions specifically
+        final storageStatus = await Permission.storage.status;
+        final manageStorageStatus = await Permission.manageExternalStorage.status;
+        final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+        
+        String statusMessage = '';
+        
+        if (isAndroid) {
+          if (!storageStatus.isGranted) {
+            statusMessage = 'Storage permission is required to save and access your study materials. ';
+          } 
+          if (!manageStorageStatus.isGranted && storageStatus.isGranted) {
+            // Only show manage storage message if storage is granted but manage is not
+            statusMessage += '\n\nTo manage your study files, please grant "Manage Storage" permission. ';
+          }
+          
+          statusMessage += '\n\nPlease enable these permissions in your device settings to continue.';
+        } else {
+          // For iOS
+          final denied = results.entries
+              .where((e) => !e.value.isGranted)
+              .map((e) {
+                switch (e.key) {
+                  case Permission.contacts: return 'Contacts';
+                  case Permission.storage: return 'Storage';
+                  case Permission.photos: return 'Photos';
+                  case Permission.notification: return 'Notifications';
+                  default: return e.key.toString();
+                }
+              })
+              .join(', ');
+              
+          statusMessage = 'The following permissions are required: $denied.\n\nPlease enable them in your device settings.';
+        }
 
-        setState(() {
-          _status = 'Some permissions were denied: $denied.\n\nPlease enable them in app settings.';
-        });
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Permissions Required'),
+              content: Text(statusMessage),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    openAppSettings();
+                  },
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+          );
+        }
       }
     } catch (e) {
-      setState(() {
-        _status = 'Error requesting permissions: $e';
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error requesting permissions: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
