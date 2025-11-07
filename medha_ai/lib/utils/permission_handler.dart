@@ -33,35 +33,28 @@ class AppPermissions {
   // Show permission rationale dialog
   static Future<bool> showPermissionRationale(
       BuildContext context, String permission) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: Text('$permission Permission'),
-            content: Text(
-                'This app needs $permission permission to function properly.'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Deny'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Settings'),
-              ),
-            ],
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text('$permission Permission'),
+        content: Text('This app needs $permission permission to function properly.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Deny'),
           ),
-        ) ??
-        false;
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Open Settings'),
           ),
         ],
       ),
-    );
+    ) ?? false;
 
     if (result == true) {
       await openAppSettings();
     }
-    return result ?? false;
+    return result;
   }
 
   // Request specific permission with rationale

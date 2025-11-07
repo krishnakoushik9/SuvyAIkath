@@ -171,30 +171,51 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _requestPermissions,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _requestPermissions,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            'GRANT PERMISSIONS',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'GRANT PERMISSIONS',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _isLoading ? null : () {
+                    // Proceed without granting all permissions
+                    if (widget.onPermissionsGranted != null) {
+                      widget.onPermissionsGranted!();
+                    } else {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text(
+                    'Skip for now',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
             TextButton(
               onPressed: () {
                 openAppSettings();
