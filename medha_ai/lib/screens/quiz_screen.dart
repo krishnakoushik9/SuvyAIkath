@@ -125,12 +125,18 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
               const SizedBox(height: 12),
               Expanded(
                 child: _QuestionView(
+                  key: ValueKey<int>(_index), // This forces a complete rebuild when index changes
                   question: _questions[_index],
-                  onAnswer: (isCorrect) {
+                  answered: _answered,
+                  onAnswer: (isCorrect, selectedIndex) {
                     if (_answered) return;
                     setState(() {
                       _answered = true;
                       if (isCorrect) _score++;
+                      _questions[_index] = _questions[_index].copyWith(
+                        selectedAnswer: selectedIndex,
+                        isAnswered: true,
+                      );
                     });
                   },
                 ),
@@ -144,7 +150,7 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
                       onPressed: () {
                         setState(() {
                           _index--;
-                          _answered = false;
+                          _answered = _questions[_index].isAnswered;
                         });
                       },
                       icon: const Icon(Icons.arrow_back_rounded),
@@ -159,7 +165,7 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
                           ? () {
                               setState(() {
                                 _index++;
-                                _answered = false;
+                                _answered = _questions[_index].isAnswered;
                               });
                             }
                           : null,
@@ -181,7 +187,10 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
                                 child: const Text('Close'),
                               ),
                               FilledButton(
-                                onPressed: _loadQuiz,
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _loadQuiz();
+                                },
                                 child: const Text('Try Again'),
                               ),
                             ],
@@ -240,9 +249,16 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
 }
 
 class _QuestionView extends StatefulWidget {
-  const _QuestionView({required this.question, required this.onAnswer});
+  const _QuestionView({
+    Key? key,
+    required this.question, 
+    required this.answered,
+    required this.onAnswer,
+  }) : super(key: key);
+  
   final QuizQuestion question;
-  final void Function(bool correct) onAnswer;
+  final bool answered;
+  final void Function(bool correct, int selectedIndex) onAnswer;
 
   @override
   State<_QuestionView> createState() => _QuestionViewState();
@@ -250,7 +266,20 @@ class _QuestionView extends StatefulWidget {
 
 class _QuestionViewState extends State<_QuestionView> {
   int? selected;
-  bool _answered = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    selected = widget.question.selectedAnswer;
+  }
+  
+  @override
+  void didUpdateWidget(_QuestionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.question != widget.question) {
+      selected = widget.question.selectedAnswer;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,20 +301,19 @@ class _QuestionViewState extends State<_QuestionView> {
             child: ListTile(
               title: Text(widget.question.options[i]),
               onTap: () {
-                if (_answered) return;
+                if (widget.answered) return;
                 setState(() {
                   selected = i;
-                  _answered = true;
                 });
                 final correct = i == widget.question.correctAnswer;
-                widget.onAnswer(correct);
+                widget.onAnswer(correct, i);
               },
               trailing: _iconFor(i),
-              enabled: !_answered || selected == i,
+              enabled: !widget.answered || selected == i,
             ),
           ),
         const SizedBox(height: 8),
-        if (_answered)
+        if (widget.answered && widget.question.explanation.isNotEmpty)
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -300,14 +328,14 @@ class _QuestionViewState extends State<_QuestionView> {
   }
 
   Color _tileColor(int i) {
-    if (!_answered) return Colors.white;
+    if (!widget.answered) return Colors.white;
     if (i == widget.question.correctAnswer) return Colors.green.withOpacity(0.15);
     if (i == selected) return Colors.red.withOpacity(0.12);
     return Colors.white;
   }
 
   Widget? _iconFor(int i) {
-    if (!_answered) return null;
+    if (!widget.answered) return null;
     if (i == widget.question.correctAnswer) {
       return const Icon(Icons.check, color: Colors.green);
     }
