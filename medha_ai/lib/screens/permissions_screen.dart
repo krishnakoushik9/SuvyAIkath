@@ -199,12 +199,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: _isLoading ? null : () {
-                    // Proceed without granting all permissions
-                    if (widget.onPermissionsGranted != null) {
-                      widget.onPermissionsGranted!();
-                    } else {
-                      Navigator.of(context).pop();
-                    }
+                    // Return true to indicate we want to proceed
+                    Navigator.of(context).pop(true);
                   },
                   child: const Text(
                     'Skip for now',
