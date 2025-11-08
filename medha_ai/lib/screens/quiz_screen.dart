@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/quiz_question.dart';
 import '../services/gemini_service.dart';
@@ -12,6 +14,7 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
+  final GlobalKey<_QuestionViewState> _questionViewKey = GlobalKey<_QuestionViewState>();
   final _gemini = GeminiService();
   List<QuizQuestion> _questions = [];
   int _index = 0;
@@ -125,7 +128,7 @@ class _QuizScreenState extends State<QuizScreen> with WidgetsBindingObserver {
               const SizedBox(height: 12),
               Expanded(
                 child: _QuestionView(
-                  key: ValueKey<int>(_index), // This forces a complete rebuild when index changes
+                  key: _questionViewKey,
                   question: _questions[_index],
                   answered: _answered,
                   onAnswer: (isCorrect, selectedIndex) {
@@ -264,13 +267,42 @@ class _QuestionView extends StatefulWidget {
   State<_QuestionView> createState() => _QuestionViewState();
 }
 
-class _QuestionViewState extends State<_QuestionView> {
+class _QuestionViewState extends State<_QuestionView> with SingleTickerProviderStateMixin {
   int? selected;
+  String? _feedbackImage;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
   
   @override
   void initState() {
     super.initState();
     selected = widget.question.selectedAnswer;
+    
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+    
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
   
   @override
@@ -281,49 +313,126 @@ class _QuestionViewState extends State<_QuestionView> {
     }
   }
 
+  Future<void> _showFeedback(bool isCorrect) async {
+    setState(() {
+      _feedbackImage = isCorrect ? 'assets/images/Correct.png' : 'assets/images/Wrong.png';
+    });
+    
+    try {
+      if (isCorrect) {
+        HapticFeedback.lightImpact();
+      } else {
+        HapticFeedback.heavyImpact();
+      }
+    } catch (e) {
+      // Handle case where haptic feedback is not available
+      debugPrint('Haptic feedback error: $e');
+    }
+    
+    await _animationController.forward();
+    await Future.delayed(const Duration(milliseconds: 1200));
+    await _animationController.reverse();
+    
+    if (mounted) {
+      setState(() {
+        _feedbackImage = null;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        Text(widget.question.question, 
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 16),
-        for (var i = 0; i < widget.question.options.length; i++)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: _tileColor(i),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black12),
+        // Main content column
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Question text
+            Text(
+              widget.question.question, 
+              style: Theme.of(context).textTheme.titleMedium
             ),
-            child: ListTile(
-              title: Text(widget.question.options[i]),
-              onTap: () {
-                if (widget.answered) return;
-                setState(() {
-                  selected = i;
-                });
-                final correct = i == widget.question.correctAnswer;
-                widget.onAnswer(correct, i);
-              },
-              trailing: _iconFor(i),
-              enabled: !widget.answered || selected == i,
-            ),
-          ),
-        const SizedBox(height: 8),
-        if (widget.answered && widget.question.explanation.isNotEmpty)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Explanation:', 
-                  style: Theme.of(context).textTheme.titleSmall),
-              Text(widget.question.explanation,
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
+            const SizedBox(height: 16),
+            
+            // Answer options
+            for (var i = 0; i < widget.question.options.length; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: _tileColor(i),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black12),
+                ),
+                child: ListTile(
+                  title: Text(widget.question.options[i]),
+                  onTap: () async {
+                    if (widget.answered) return;
+                    
+                    setState(() {
+                      selected = i;
+                    });
+                    
+                    final correct = i == widget.question.correctAnswer;
+                    
+                    // Show feedback and trigger haptics
+                    await _showFeedback(correct);
+                    
+                    // Notify parent about the answer
+                    if (mounted) {
+                      widget.onAnswer(correct, i);
+                    }
+                  },
+                  trailing: _iconFor(i),
+                  enabled: !widget.answered || selected == i,
+                ),
+              ),
+            
+            // Explanation section
+            const SizedBox(height: 8),
+            if (widget.answered && widget.question.explanation.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Explanation:', 
+                    style: Theme.of(context).textTheme.titleSmall
+                  ),
+                  Text(
+                    widget.question.explanation,
+                    style: Theme.of(context).textTheme.bodyMedium
+                  ),
+                ],
+              ),
+          ],
+        ),
+        
+        // Feedback overlay
+        if (_feedbackImage != null) _buildFeedbackOverlay(),
       ],
+    );
+  }
+
+  Widget _buildFeedbackOverlay() {
+    return Center(
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Opacity(
+            opacity: _opacityAnimation.value,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Image.asset(
+                _feedbackImage!,
+                width: 200,
+                height: 200,
+                fit: BoxFit.contain,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
