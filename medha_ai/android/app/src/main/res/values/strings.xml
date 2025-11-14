@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Medha AI</string>
+    <string name="knowledge_bite">Knowledge Bite</string>
+    <string name="loading_knowledge">Loading knowledge...</string>
+    <string name="widget_title">Knowledge Bites</string>
+    <string name="widget_description">Displays educational facts and memes</string>
+</resources>
