@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:developer' as developer;
 import 'package:permission_handler/permission_handler.dart';
+import 'utils/haptic_utils.dart';
 import 'utils/theme.dart';
 import 'screens/oauth_screen.dart';
 import 'screens/home_screen.dart';
@@ -121,6 +124,23 @@ class _AppShellState extends State<_AppShell> {
     });
   }
 
+  // Enhanced haptic feedback for navigation
+  Future<void> _onItemTapped(int index) async {
+    // Use our haptic utility for consistent feedback
+    await HapticUtils.mediumImpact();
+    
+    // Update the UI
+    if (mounted) {
+      setState(() => _index = index);
+      
+      // Add a subtle confirmation haptic after navigation
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted) {
+        await HapticUtils.selectionClick();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_permissionsGranted) {
@@ -138,7 +158,7 @@ class _AppShellState extends State<_AppShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _onItemTapped,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Tasks'),

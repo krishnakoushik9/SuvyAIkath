@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/haptic_utils.dart';
 import '../models/quiz_question.dart';
 import '../services/gemini_service.dart';
 
@@ -314,19 +315,30 @@ class _QuestionViewState extends State<_QuestionView> with SingleTickerProviderS
   }
 
   Future<void> _showFeedback(bool isCorrect) async {
+    if (!mounted) return;
+    
+    // Immediate visual feedback
     setState(() {
       _feedbackImage = isCorrect ? 'assets/images/Correct.png' : 'assets/images/Wrong.png';
     });
     
-    try {
-      if (isCorrect) {
-        HapticFeedback.lightImpact();
-      } else {
-        HapticFeedback.heavyImpact();
+    // Haptic feedback based on answer
+    if (isCorrect) {
+      await HapticUtils.success();
+      
+      // Additional subtle haptic after a short delay
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        await HapticUtils.lightImpact();
       }
-    } catch (e) {
-      // Handle case where haptic feedback is not available
-      debugPrint('Haptic feedback error: $e');
+    } else {
+      await HapticUtils.error();
+      
+      // Additional haptic for wrong answer
+      if (mounted) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        await HapticUtils.vibrate(milliseconds: 30);
+      }
     }
     
     await _animationController.forward();
@@ -370,18 +382,36 @@ class _QuestionViewState extends State<_QuestionView> with SingleTickerProviderS
                   onTap: () async {
                     if (widget.answered) return;
                     
-                    setState(() {
-                      selected = i;
-                    });
+                    // Initial tap feedback with error handling
+                    try {
+                      await HapticUtils.selectionClick();
+                    } catch (e) {
+                      debugPrint('Initial tap haptic error: $e');
+                    }
                     
+                    if (!mounted) return;
+                    
+                    setState(() => selected = i);
                     final correct = i == widget.question.correctAnswer;
                     
-                    // Show feedback and trigger haptics
+                    // Show feedback with haptics
                     await _showFeedback(correct);
                     
-                    // Notify parent about the answer
+                    // Notify parent and provide additional feedback
                     if (mounted) {
                       widget.onAnswer(correct, i);
+                      
+                      // Final confirmation haptic for correct answers
+                      if (correct) {
+                        await Future.delayed(const Duration(milliseconds: 150));
+                        if (mounted) {
+                          try {
+                            await HapticUtils.selectionClick();
+                          } catch (e) {
+                            debugPrint('Confirmation haptic error: $e');
+                          }
+                        }
+                      }
                     }
                   },
                   trailing: _iconFor(i),
@@ -419,15 +449,22 @@ class _QuestionViewState extends State<_QuestionView> with SingleTickerProviderS
       child: AnimatedBuilder(
         animation: _animationController,
         builder: (context, child) {
-          return Opacity(
+          return AnimatedOpacity(
             opacity: _opacityAnimation.value,
+            duration: const Duration(milliseconds: 150),
             child: Transform.scale(
               scale: _scaleAnimation.value,
-              child: Image.asset(
-                _feedbackImage!,
-                width: 200,
-                height: 200,
-                fit: BoxFit.contain,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _feedbackImage != null
+                    ? Image.asset(
+                        _feedbackImage!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.contain,
+                        key: ValueKey<String>(_feedbackImage ?? ''),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           );

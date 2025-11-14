@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     
+    <!-- Vibration Permission -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    
     <!-- Other Essential Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -20,7 +23,35 @@
     <application
         android:label="SuvyAIkth"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:versionName="0.0.16"
+        android:versionCode="16"
+        tools:replace="android:label">
+        
+        <!-- Developer Information -->
+        <meta-data
+            android:name="com.android.vending.licensing"
+            android:resource="@xml/license" />
+            
+        <meta-data
+            android:name="developer_name"
+            android:value="Krishna Koushik" />
+            
+        <!-- Widget Provider -->
+        <receiver android:name=".widget.KnowledgeBiteWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/knowledge_bite_widget_info" />
+        </receiver>
+        
+        <service
+            android:name=".widget.WidgetUpdateService"
+            android:enabled="true"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/file_service.dart';
@@ -51,7 +53,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   }
 
-  void _openQuiz() {
+  Future<void> _openQuiz() async {
+    // Strong haptic for quiz start
+    await HapticFeedback.heavyImpact();
+    await Future.delayed(const Duration(milliseconds: 30));
+    await HapticFeedback.mediumImpact();
+    
+    if (!mounted) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (_, animation, __) => const QuizScreen(),
@@ -92,11 +100,60 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // Enhanced haptic feedback for download progress
+  Timer? _hapticTimer;
+  
+  void _startHapticFeedback() async {
+    if (_hapticTimer != null) return;
+    
+    // Initial strong haptic feedback
+    await HapticFeedback.heavyImpact();
+    
+    // Continuous haptic feedback during download
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) async {
+      if (!_downloading) {
+        timer.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      // Vary the haptic intensity based on progress
+      if (_progress < 0.3) {
+        await HapticFeedback.vibrate();
+      } else if (_progress < 0.7) {
+        await HapticFeedback.mediumImpact();
+      } else {
+        // Create a pattern for the final stretch
+        await HapticFeedback.mediumImpact();
+        await Future.delayed(const Duration(milliseconds: 50));
+        await HapticFeedback.lightImpact();
+      }
+    });
+  }
+  
+  void _stopHapticFeedback() {
+    _hapticTimer?.cancel();
+    _hapticTimer = null;
+    // Final confirmation haptic
+    HapticFeedback.mediumImpact();
+  }
+  
+  @override
+  void dispose() {
+    _hapticTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _handleOpen(String url, String filename) async {
+    // Strong initial haptic
+    await HapticFeedback.heavyImpact();
+    
     setState(() {
       _downloading = true;
       _progress = 0;
     });
+    
+    // Start haptic feedback
+    _startHapticFeedback();
     try {
       final path = await _fileService.ensureDownloaded(
         url: url,
@@ -115,6 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
       await _refreshDownloaded();
     } catch (e) {
       if (!mounted) return;
+      // Error haptic pattern
+      await HapticFeedback.vibrate();
+      await Future.delayed(const Duration(milliseconds: 50));
+      await HapticFeedback.vibrate();
+      _stopHapticFeedback();
       setState(() => _downloading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Download failed. Please check your connection and permissions.')),
